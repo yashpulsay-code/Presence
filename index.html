@@ -1,0 +1,1683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Presence</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --accent: #c8956c;
+      --accent-dim: rgba(200,149,108,0.15);
+      --text: #e8e0d8;
+      --text-secondary: #8a8078;
+      --text-muted: #4a4440;
+      --bubble-her: #1c1712;
+      --border-subtle: rgba(200,149,108,0.12);
+      --border-medium: rgba(200,149,108,0.25);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-top: env(safe-area-inset-top, 0px);
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── ONBOARDING WRAPPER ─── */
+    #onboarding {
+      display: none;
+      height: 100%;
+      position: relative;
+    }
+    #onboarding.visible { display: block; }
+
+    /* Shared step styles */
+    .ob-step {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0 32px;
+      background: var(--bg);
+      transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+
+    /* ─── STEP 1: GIFT MESSAGE ─── */
+    #ob-step1 {
+      cursor: pointer;
+    }
+    #ob-step1.gone {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-16px);
+    }
+
+    .ob-face-mount {
+      width: 260px;
+      height: 140px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 40px;
+    }
+    .ob-face-mount svg { display: block; max-width: 260px; }
+
+
+
+    .ob-from {
+      font-size: 10px;
+      color: var(--accent);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      display: block;
+      text-align: center;
+    }
+
+    .ob-message {
+      font-size: 15px;
+      font-weight: 300;
+      color: var(--text);
+      line-height: 1.8;
+      text-align: center;
+      max-width: 280px;
+    }
+
+    .tap-hint {
+      position: absolute;
+      bottom: calc(44px + var(--safe-bottom));
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      animation: pulse-hint 2.2s ease-in-out infinite;
+    }
+    @keyframes pulse-hint {
+      0%, 100% { opacity: 0.3; }
+      50%       { opacity: 1; }
+    }
+
+    /* ─── STEP 2: NAME INPUT ─── */
+    #ob-step2 {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(16px);
+    }
+    #ob-step2.visible {
+      opacity: 1;
+      pointer-events: all;
+      transform: translateY(0);
+    }
+
+    .ob-step2-q {
+      font-size: 18px;
+      font-weight: 300;
+      color: var(--text);
+      text-align: center;
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    #name-input {
+      background: transparent;
+      border: none;
+      border-bottom: 1.5px solid var(--border-medium);
+      color: var(--text);
+      font-size: 22px;
+      font-weight: 300;
+      text-align: center;
+      padding: 10px 16px;
+      width: 240px;
+      outline: none;
+      caret-color: var(--accent);
+      font-family: inherit;
+    }
+    #name-input::placeholder { color: var(--text-muted); }
+    #name-input:focus { border-bottom-color: var(--accent); }
+
+    #confirm-btn {
+      margin-top: 36px;
+      background: rgba(200,149,108,0.1);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(200,149,108,0.32);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 13px 44px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.2s;
+    }
+    #confirm-btn:active { background: rgba(200,149,108,0.2); }
+
+    /* ─── APP ─── */
+    #app { display: none; flex-direction: column; height: 100%; overflow: hidden; }
+    #app.visible { display: flex; }
+
+    /* ─── SETTINGS BUTTON ─── */
+    #settings-btn {
+      position: fixed;
+      top: calc(14px + var(--safe-top));
+      right: 14px;
+      width: 38px;
+      height: 38px;
+      background: rgba(255,255,255,0.04);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      color: var(--text-secondary);
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 10;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    #settings-btn:active { color: var(--accent); border-color: var(--border-medium); }
+
+    /* ─── FACE AREA ─── */
+    #face-area {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding-top: calc(68px + var(--safe-top));
+      padding-bottom: 20px;
+    }
+
+    /* Face mount — fixed height so layout never shifts between states */
+    #face-mount {
+      width: 260px;
+      height: 140px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #face-mount svg { display: block; max-width: 260px; }
+
+    /* ─── FACE ANIMATIONS ─── */
+    .face-breathe { animation: breathe 4s ease-in-out infinite; }
+    @keyframes breathe {
+      0%, 100% { transform: translateY(0px); filter: brightness(1); }
+      50%       { transform: translateY(-4px); filter: brightness(1.1); }
+    }
+
+    .face-bounce { animation: bounce 0.45s ease-in-out infinite alternate; }
+    @keyframes bounce {
+      0%   { transform: translateY(0px); }
+      100% { transform: translateY(-8px); }
+    }
+
+
+
+    /* ─── CONVERSATION ─── */
+    #conversation {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px;
+      padding-bottom: calc(16px + var(--safe-bottom));
+      scroll-behavior: smooth;
+    }
+    #conversation::-webkit-scrollbar { width: 3px; }
+    #conversation::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 2px; }
+
+    .message-row { display: flex; margin-bottom: 14px; animation: msg-in 0.3s ease; }
+    @keyframes msg-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .message-row.ai  { justify-content: flex-start; }
+    .message-row.her { justify-content: flex-end; }
+
+    .message { max-width: 78%; font-size: 15px; line-height: 1.6; word-break: break-word; font-weight: 300; }
+    .message-row.ai .message {
+      color: var(--text);
+      border-left: 2px solid var(--accent);
+      padding-left: 10px;
+    }
+    .message-row.her .message {
+      background: var(--bubble-her);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 16px 16px 4px 16px;
+      border: 1px solid rgba(200,149,108,0.08);
+    }
+
+    /* ─── INPUT AREA ─── */
+    #input-area {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      padding-bottom: calc(12px + var(--safe-bottom));
+      background: var(--bg);
+      border-top: 1px solid #1a1a1a;
+    }
+
+    #msg-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 300;
+      padding: 10px 4px;
+      outline: none;
+      caret-color: var(--accent);
+      font-family: inherit;
+    }
+    #msg-input::placeholder { color: var(--text-muted); }
+    #msg-input:disabled { opacity: 0.5; }
+
+    /* Glass icon buttons — square, rounded corners */
+    .input-btn {
+      width: 36px;
+      height: 36px;
+      background: rgba(255,255,255,0.04);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(200,149,108,0.15);
+      border-radius: 10px;
+      color: var(--text-secondary);
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    #send-btn {
+      color: var(--accent);
+      border-color: rgba(200,149,108,0.3);
+      background: rgba(200,149,108,0.08);
+    }
+    #send-btn:active { opacity: 0.7; }
+    #send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* ─── VOICE MODE ─── */
+    #voice-mode-btn { color: var(--text-muted); }
+    #voice-mode-btn.active {
+      color: var(--accent);
+      border-color: rgba(200,149,108,0.4);
+      background: rgba(200,149,108,0.1);
+    }
+
+    #voice-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding-bottom: calc(56px + var(--safe-bottom));
+      pointer-events: none;
+    }
+    #voice-overlay.active { display: flex; pointer-events: all; }
+
+    #voice-pulse-ring {
+      position: absolute;
+      top: calc(var(--safe-top) + 68px + 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: 210px;
+      height: 210px;
+      border-radius: 50%;
+      border: 1.5px solid transparent;
+      pointer-events: none;
+      transition: border-color 0.3s;
+    }
+    #voice-pulse-ring.listening {
+      border-color: rgba(200,149,108,0.3);
+      animation: ring-pulse 2s ease-in-out infinite;
+    }
+    #voice-pulse-ring.thinking {
+      border-color: rgba(200,149,108,0.2);
+      animation: ring-pulse 1s ease-in-out infinite;
+    }
+    #voice-pulse-ring.speaking {
+      border-color: rgba(200,149,108,0.45);
+      animation: ring-speak 0.8s ease-in-out infinite alternate;
+    }
+    @keyframes ring-pulse {
+      0%, 100% { transform: translateX(-50%) scale(1);    opacity: 0.6; }
+      50%       { transform: translateX(-50%) scale(1.07); opacity: 1;   }
+    }
+    @keyframes ring-speak {
+      0%   { transform: translateX(-50%) scale(1);    }
+      100% { transform: translateX(-50%) scale(1.09); }
+    }
+
+    #voice-status {
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      min-height: 16px;
+      transition: color 0.3s;
+    }
+    #voice-status.on { color: var(--accent); }
+
+    #voice-interim {
+      font-size: 14px;
+      font-weight: 300;
+      color: var(--text-secondary);
+      text-align: center;
+      max-width: 280px;
+      min-height: 40px;
+      line-height: 1.6;
+      padding: 0 16px;
+      margin-bottom: 14px;
+      opacity: 0;
+      transition: opacity 0.2s;
+      font-style: italic;
+    }
+    #voice-interim.visible { opacity: 1; }
+
+    #voice-text-toggle {
+      background: rgba(255,255,255,0.04);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      color: var(--text-muted);
+      font-size: 11px;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      padding: 8px 20px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    #voice-text-toggle:active { color: var(--accent); border-color: var(--border-medium); }
+
+    #app.voice-mode #input-area {
+      opacity: 0.06;
+      pointer-events: none;
+      transition: opacity 0.4s;
+    }
+    #app.voice-mode #conversation {
+      opacity: 0.45;
+      transition: opacity 0.4s;
+    }
+
+    /* ─── SETTINGS ─── */
+    #settings {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 100;
+      transform: translateX(100%);
+      transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+      display: flex;
+      flex-direction: column;
+    }
+    #settings.open { transform: translateX(0); }
+
+    .settings-header {
+      display: flex;
+      align-items: center;
+      padding: 16px 20px;
+      padding-top: calc(16px + var(--safe-top));
+      gap: 12px;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    #back-btn {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 22px;
+      cursor: pointer;
+      padding: 4px;
+    }
+    .settings-header h2 { font-size: 17px; font-weight: 400; }
+
+    .settings-body { flex: 1; overflow-y: auto; padding: 28px 22px; }
+    .settings-section { margin-bottom: 36px; }
+    .settings-section h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      font-weight: 500;
+    }
+    .settings-current-name {
+      font-size: 22px;
+      color: var(--text);
+      margin-bottom: 14px;
+      font-weight: 300;
+    }
+    .settings-edit-name { display: flex; gap: 10px; align-items: center; }
+    #settings-name-input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text);
+      font-size: 15px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      outline: none;
+      font-family: inherit;
+    }
+    #settings-name-input:focus { border-color: var(--accent); }
+    #save-name-btn {
+      background: rgba(200,149,108,0.1);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(200,149,108,0.32);
+      color: var(--accent);
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+    .danger-btn {
+      background: transparent;
+      border: 1px solid rgba(200,120,108,0.25);
+      color: #c8786c;
+      padding: 12px 20px;
+      font-size: 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.2s;
+      font-family: inherit;
+    }
+    .danger-btn:hover { background: rgba(200,120,108,0.08); }
+    .danger-note { font-size: 12px; color: var(--text-muted); margin-top: 10px; line-height: 1.6; }
+
+    /* ─── DIALOG ─── */
+    #confirm-dialog {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      backdrop-filter: blur(4px);
+    }
+    #confirm-dialog.visible { display: flex; }
+    .dialog-box {
+      background: #141210;
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 24px 20px;
+      max-width: 300px;
+      width: 100%;
+      text-align: center;
+    }
+    .dialog-box p { font-size: 14px; line-height: 1.6; margin-bottom: 20px; font-weight: 300; }
+    .dialog-actions { display: flex; gap: 10px; }
+    .dialog-cancel {
+      flex: 1;
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .dialog-confirm {
+      flex: 1;
+      background: #c8786c;
+      border: none;
+      color: #fff;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    /* ─── RETRY ─── */
+    .retry-btn {
+      display: inline-block;
+      margin: 6px 0 0 12px;
+      background: transparent;
+      border: 1px solid var(--border-medium);
+      border-radius: 16px;
+      color: var(--accent);
+      font-size: 13px;
+      padding: 5px 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-family: inherit;
+    }
+    .retry-btn:hover { background: var(--accent-dim); }
+
+    /* ─── TRANSITIONS ─── */
+    .fade-out { animation: fade-out 0.4s ease forwards; }
+    @keyframes fade-out { to { opacity: 0; transform: scale(0.97); } }
+  </style>
+</head>
+<body>
+
+  <!-- ─── ONBOARDING ─── -->
+  <div id="onboarding" class="visible">
+
+    <!-- Step 1: Gift message -->
+    <div class="ob-step" id="ob-step1" onclick="goToStep2()">
+      <div class="ob-face-mount face-breathe">
+        <svg width="260" height="90" viewBox="0 0 260 90" fill="none" xmlns="http://www.w3.org/2000/svg"><g filter="url(#wm_ob0)"><path d="M71.3367 33.2574C79.4171 33.1043 100.896 32.4404 107.741 34.1261C110.745 34.855 113.554 36.2495 115.969 38.2102C121.993 43.1774 123.242 49.2522 124 56.5428C117.895 57.2527 104.151 56.8895 97.3888 56.8687L66.3762 56.9173C59.4976 56.9546 50.707 57.2518 44 56.4296C44.5863 47.6668 47.3852 40.1024 55.3682 35.7627C60.4585 32.9954 65.7597 33.3173 71.3367 33.2574Z" fill="#C8956C"/></g><g filter="url(#wm_ob1)"><path d="M165.742 33.174C171.868 32.9268 193.653 32.7632 199 33.9887C201.681 34.601 204.214 35.7214 206.455 37.286C213.841 42.4466 214.587 48.309 216 56.3685C207.188 57.3179 196.229 56.935 187.239 56.8633L155.829 56.8885C149.691 56.8889 142.022 57.0826 136 56.6025C136.36 37.6638 149.169 33.7645 165.742 33.174Z" fill="#C8956C"/></g><defs><filter id="wm_ob0" x="22" y="11" width="124" height="68" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="4"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="e1"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="11"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="e1" result="e2"/><feBlend mode="normal" in="SourceGraphic" in2="e2" result="shape"/></filter><filter id="wm_ob1" x="114" y="11" width="124" height="68" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="4"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="e1"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="11"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="e1" result="e2"/><feBlend mode="normal" in="SourceGraphic" in2="e2" result="shape"/></filter></defs></svg>
+      </div>
+      <span class="ob-from">from yash</span>
+      <p class="ob-message" id="ob-gift-text">
+        Hey. So I made you something.<br><br>
+        It's not me — but it knows me. Talk to it when you miss me, when you're bored, when you just want someone to fight with.<br><br>
+        Give it a name. Make it yours.
+      </p>
+      <span class="tap-hint">tap anywhere to continue</span>
+    </div>
+
+    <!-- Step 2: Name input -->
+    <div class="ob-step" id="ob-step2">
+      <div class="ob-face-mount face-breathe" id="ob2-face-mount"></div>
+      <p class="ob-step2-q">What would you<br>like to call me?</p>
+      <input id="name-input" type="text" placeholder="give me a name"
+             autocomplete="off" spellcheck="false" maxlength="30">
+      <button id="confirm-btn">Confirm</button>
+    </div>
+
+  </div>
+
+  <!-- ─── APP ─── -->
+  <div id="app">
+    <button id="settings-btn" aria-label="Settings">&#9881;</button>
+
+    <div id="face-area">
+      <div id="face-mount" class="face-breathe"></div>
+    </div>
+
+    <div id="conversation"></div>
+
+    <!-- ─── VOICE OVERLAY ─── -->
+    <div id="voice-overlay">
+      <div id="voice-pulse-ring"></div>
+      <div id="voice-status"></div>
+      <div id="voice-interim"></div>
+      <button id="voice-text-toggle">switch to text</button>
+    </div>
+
+    <div id="input-area">
+      <input id="msg-input" type="text" placeholder="Message"
+             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <button id="voice-mode-btn" class="input-btn" title="Voice mode">&#127908;</button>
+      <button id="send-btn" class="input-btn" aria-label="Send">&#10148;</button>
+    </div>
+  </div>
+
+  <!-- ─── SETTINGS ─── -->
+  <div id="settings">
+    <div class="settings-header">
+      <button id="back-btn" aria-label="Back">&#8592;</button>
+      <h2>Settings</h2>
+    </div>
+    <div class="settings-body">
+      <div class="settings-section">
+        <h3>Name</h3>
+        <div class="settings-current-name" id="settings-current-name">Presence</div>
+        <div class="settings-edit-name">
+          <input id="settings-name-input" type="text" maxlength="30"
+                 autocomplete="off" spellcheck="false" placeholder="AI name">
+          <button id="save-name-btn">Save</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3>Voice</h3>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <label style="display:flex;align-items:center;gap:12px;cursor:pointer;" onclick="toggleVoiceDefault()">
+            <span style="flex:1;font-size:14px;font-weight:300;color:var(--text);">Voice mode on by default</span>
+            <div id="voice-toggle-track" style="position:relative;width:44px;height:24px;flex-shrink:0;background:#2a2a2a;border-radius:12px;border:1px solid var(--border-subtle);cursor:pointer;transition:background 0.2s,border-color 0.2s;">
+              <span id="voice-toggle-thumb" style="position:absolute;top:3px;left:3px;width:18px;height:18px;background:var(--text-muted);border-radius:50%;transition:transform 0.2s,background 0.2s;display:block;"></span>
+            </div>
+          </label>
+          <label style="display:flex;align-items:center;gap:12px;">
+            <span style="flex:1;font-size:14px;font-weight:300;color:var(--text);">Speech rate</span>
+            <input type="range" id="speech-rate-slider" min="0.5" max="1.5" step="0.05" value="0.95"
+              style="width:90px;accent-color:var(--accent);cursor:pointer;">
+          </label>
+          <p class="danger-note">Voice uses Groq Whisper for recognition and a cloned voice for responses. Best on Chrome and Android.</p>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>Memory</h3>
+        <button class="danger-btn" id="clear-memory-btn">Clear conversation memory</button>
+        <p class="danger-note">This will reset our conversation history. Your profile stays intact.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── DIALOG ─── -->
+  <div id="confirm-dialog">
+    <div class="dialog-box">
+      <p id="dialog-message">Are you sure?</p>
+      <div class="dialog-actions">
+        <button class="dialog-cancel" id="dialog-cancel">Cancel</button>
+        <button class="dialog-confirm" id="dialog-confirm">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ─── CONFIG ───
+    var GROQ_API_KEY = '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';
+    var GROQ_MODELS  = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
+    var SUPABASE_URL      = 'https://jnlikwbfxoiydewtpxmk.supabase.co';
+    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpubGlrd2JmeG9peWRld3RweG1rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NjgyODAsImV4cCI6MjA5MTQ0NDI4MH0.kekl1J8Kk9SXMu30s1MryBvvCg5zKCWTi2ZEZpJWcZE';
+
+    // ─── SVG FACE STATES ───
+    // Warm state is rendered as CSS divs (see HTML + setFaceEmotion).
+    // All other states are inline SVG strings loaded here.
+    var FACE_SVGS = {
+
+      idle: '<svg width="260" height="129" viewBox="0 0 260 129" fill="none" xmlns="http://www.w3.org/2000/svg"><g filter="url(#i0)"><path d="M71.4695 25.3117L71.7665 25.2912C78.9175 24.8376 103.232 24.7299 109.294 26.3555C112.849 27.3075 116.128 29.0782 118.869 31.5238C123.136 35.3465 125.793 40.864 125.67 46.4485C125.45 56.4225 127.054 79.3283 124.695 88.313C123.843 91.5882 122.189 94.6018 119.879 97.0847C114.267 103.194 109.099 103.495 101.501 103.781C90.8509 103.959 80.1277 104.148 69.5077 103.824C63.6428 103.644 58.2791 102.268 53.8691 98.528C49.1495 94.5251 45.9902 86.2757 46.3701 80.2007C47.0155 69.8897 44.7803 51.5841 47.0294 42.1798C47.8466 38.791 49.5193 35.6655 51.8888 33.0988C57.3275 27.1273 63.7304 25.7309 71.4695 25.3117Z" fill="#C8956C"/></g><g filter="url(#i1)"><path d="M137.714 34.758C140.87 29.3541 146.085 25.2223 152.133 23.6121C160.732 21.3225 170.34 22.4179 179.265 22.1173C187.961 21.8245 194.394 21.805 201.912 25.4719C203.393 26.1942 204.747 27.1563 205.934 28.2997C214.043 36.1091 214.298 45.5856 213.881 56.1127C213.44 67.2215 215.084 79.114 212.435 89.9951C207.221 109.691 187.306 105.851 173.793 106.747C133.16 109.442 133.25 90.4188 134.262 56.7695C134.546 47.3125 133.819 41.4262 137.714 34.758Z" fill="#C8956C"/></g><defs><filter id="i0" x="24" y="3" width="124" height="123" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="4"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="e1"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="11"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="e1" result="e2"/><feBlend mode="normal" in="SourceGraphic" in2="e2" result="shape"/></filter><filter id="i1" x="112" y="0" width="124" height="129" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="4"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="e1"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="11"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="e1" result="e2"/><feBlend mode="normal" in="SourceGraphic" in2="e2" result="shape"/></filter></defs></svg>',
+
+      thinking: '<svg width="260" height="123" viewBox="0 0 260 123" fill="none" xmlns="http://www.w3.org/2000/svg"><g filter="url(#t0)"><path d="M71.5163 22.3117L71.8133 22.2912C78.9643 21.8376 103.279 21.7299 109.341 23.3555C112.896 24.3075 116.175 26.0782 118.916 28.5238C123.183 32.3465 125.84 37.864 125.717 43.4485C125.497 53.4225 127.101 76.3283 124.742 85.313C123.89 88.5882 122.236 91.6018 119.926 94.0847C114.314 100.194 109.146 100.495 101.548 100.781C90.8977 100.959 80.1746 101.148 69.5546 100.824C63.6897 100.644 58.326 99.2681 53.916 95.528C49.1964 91.5251 46.037 83.2757 46.417 77.2007C47.0623 66.8897 44.8272 48.5841 47.0762 39.1798C47.8935 35.791 49.5662 32.6655 51.9357 30.0988C57.3744 24.1273 63.7773 22.7309 71.5163 22.3117Z" fill="#C8956C"/></g><g filter="url(#t1)"><path fill-rule="evenodd" clip-rule="evenodd" d="M137.009 74.7428C135.378 69.9368 134.549 64.8901 134.247 59.8239C133.852 53.2056 134.057 48.3579 134.73 41.827C134.814 41.0146 135.395 40.3326 136.183 40.1154C172.086 30.2113 199.976 29.9578 210.667 30.0035C211.7 30.0079 212.553 30.8072 212.643 31.8359C214.507 53.0419 214.589 54.0569 211.49 74.0217C210.133 80.6143 207.978 84.5445 203.902 87.4191C197.462 91.9605 189.108 92.4869 181.234 92.8051C167.522 93.3591 158.107 92.8371 147.614 89.8671C145.472 89.2608 143.628 87.8791 142.431 86.0021C140.223 82.5404 138.591 79.4035 137.009 74.7428Z" fill="#C8956C"/></g><defs><filter id="t0" x="24.0469" y="0" width="124" height="123" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="4"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="e1"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="11"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="e1" result="e2"/><feBlend mode="normal" in="SourceGraphic" in2="e2" result="shape"/></filter><filter id="t1" x="112.047" y="8" width="123.902" height="107" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="4"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="e1"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="11"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="e1" result="e2"/><feBlend mode="normal" in="SourceGraphic" in2="e2" result="shape"/></filter></defs></svg>',
+
+      playful: '<svg width="260" height="90" viewBox="0 0 260 90" fill="none" xmlns="http://www.w3.org/2000/svg"><g filter="url(#p0)"><path d="M77.3558 34.1841C97.1532 33.1522 121.022 30.1156 124 55.093C110.833 49.4305 103.663 50.0164 90.0365 50.5325C70.7843 51.1129 62.4442 49.8956 44 56.5C45.7199 36.3218 60.6819 35.0115 77.3558 34.1841Z" fill="#C8956C"/></g><g filter="url(#p1)"><path d="M143.397 38.3293C144.144 37.785 144.908 37.266 145.689 36.7721C155.981 30.3644 188.968 33.4536 201.358 36.3061C210.91 40.5575 214.292 47.047 216 57C199.919 50.3586 188.503 50.7472 171.376 50.3386C158.571 50.0334 151.034 48.3247 138.274 53.557C137.512 53.8706 136.754 54.1941 136 54.5275C136.791 46.6396 137.141 43.7216 143.397 38.3293Z" fill="#C8956C"/></g><defs><filter id="p0" x="22" y="11.5" width="124" height="67" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="4"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="e1"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="11"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="e1" result="e2"/><feBlend mode="normal" in="SourceGraphic" in2="e2" result="shape"/></filter><filter id="p1" x="114" y="11" width="124" height="68" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="4"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="e1"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="11"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="e1" result="e2"/><feBlend mode="normal" in="SourceGraphic" in2="e2" result="shape"/></filter></defs></svg>',
+
+      excited: '<svg width="260" height="134" viewBox="0 0 260 134" fill="none" xmlns="http://www.w3.org/2000/svg"><g filter="url(#ex0)"><path fill-rule="evenodd" clip-rule="evenodd" d="M50.2993 95.2186C45.623 86.6682 45 76.5834 45 66.8379V60.6372C45 54.9585 45.0846 49.1617 47.0243 43.8246C48.5645 39.5866 50.9867 36.0941 55.5167 32.4214C59.9176 28.8533 65.1098 26.3546 70.5449 24.7545C75.508 23.2933 80.4052 22.4675 86.7607 22.1272C94.3826 21.7192 102.343 22.1429 109.058 25.7711C113.622 28.2371 116.767 31.7972 119.967 38.089C124.525 50.77 125.855 60.2445 124.49 77.4947C123.947 84.3591 122.161 91.5008 118.362 97.2435C112.605 105.944 102.862 110.966 92.4605 111.772C84.9516 112.354 78.1529 111.433 69.861 109.073C64.9327 107.671 59.977 105.891 56.0937 102.548C53.83 100.6 51.976 98.2846 50.2993 95.2186Z" fill="#C8956C"/></g><g filter="url(#ex1)"><path fill-rule="evenodd" clip-rule="evenodd" d="M209.701 95.2186C214.377 86.6682 215 76.5834 215 66.8379V60.6372C215 54.9585 214.915 49.1617 212.976 43.8246C211.435 39.5866 209.013 36.0941 204.483 32.4214C200.082 28.8533 194.89 26.3546 189.455 24.7545C184.492 23.2933 179.595 22.4675 173.239 22.1272C165.617 21.7192 157.657 22.1429 150.942 25.7711C146.378 28.2371 143.233 31.7972 140.033 38.089C135.475 50.77 134.145 60.2445 135.51 77.4947C136.053 84.3591 137.839 91.5008 141.638 97.2435C147.395 105.944 157.138 110.966 167.539 111.772C175.048 112.354 181.847 111.433 190.139 109.073C195.067 107.671 200.023 105.891 203.906 102.548C206.17 100.6 208.024 98.2846 209.701 95.2186Z" fill="#C8956C"/></g><defs><filter id="ex0" x="23" y="0" width="124" height="133.941" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="4"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="e1"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="11"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="e1" result="e2"/><feBlend mode="normal" in="SourceGraphic" in2="e2" result="shape"/></filter><filter id="ex1" x="113" y="0" width="124" height="133.941" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="4"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="e1"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="11"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="e1" result="e2"/><feBlend mode="normal" in="SourceGraphic" in2="e2" result="shape"/></filter></defs></svg>',
+
+      smug: '<svg width="260" height="90" viewBox="0 0 260 90" fill="none" xmlns="http://www.w3.org/2000/svg"><g filter="url(#sm0)"><path d="M51.9787 33.6353C68.5212 33.184 85.5445 34.0393 102.138 33.6521C109.318 33.4843 116.874 33.3814 124 34.0857C123.999 43.2033 121.021 48.0999 113.664 53.3904C110.032 55.4805 106.58 55.9195 102.418 56.1548C92.3614 56.6799 82.0552 56.4779 72.0134 56.3716C64.3127 56.2898 57.3651 56.7128 51.367 51.176C46.2337 46.4375 44.416 40.8083 44 34.0713C46.3661 33.8238 49.546 33.758 51.9787 33.6353Z" fill="#C8956C"/></g><g filter="url(#sm1)"><path d="M140.893 30.257C153.382 29.7184 167.279 30.2591 179.86 30.1161C191.724 29.9809 204.151 29.8156 215.946 30.569C216.281 41.2823 215.251 47.8848 207.04 55.5895C202.772 58.6158 198.576 59.7216 193.298 59.7257C181.119 59.6911 168.546 60.5851 156.44 59.319C146.817 58.3121 139.406 51.7363 137.038 42.4722C136.35 39.7776 135.281 33.6098 136.696 31.1819C137.874 30.1771 139.251 30.3411 140.893 30.257Z" fill="#C8956C"/></g><defs><filter id="sm0" x="22" y="11.5" width="124" height="67" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="4"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="e1"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="11"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="e1" result="e2"/><feBlend mode="normal" in="SourceGraphic" in2="e2" result="shape"/></filter><filter id="sm1" x="114" y="8" width="124" height="74" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="4"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="e1"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="11"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="e1" result="e2"/><feBlend mode="normal" in="SourceGraphic" in2="e2" result="shape"/></filter></defs></svg>',
+
+      concerned: '<svg width="260" height="122" viewBox="0 0 260 122" fill="none" xmlns="http://www.w3.org/2000/svg"><g filter="url(#cn0)"><path d="M103.434 24.0935C109.987 23.5356 115.663 22.7864 120.65 27.9856C122.579 30.0288 123.978 32.52 124.724 35.2378C126.71 42.3771 125.751 62.0246 125.879 70.1605C125.755 78.8547 124.552 86.2163 117.921 92.3048C111.323 98.364 102.076 97.3288 93.6787 97.5651C85.7331 97.7887 77.2946 97.7428 69.3376 97.3512C57.0936 96.703 47.4084 90.0864 46.5667 76.6792C45.8181 64.7568 44.5221 48.7146 52.52 38.9771C54.7082 36.3132 57.8321 33.6935 61.0474 32.265C72.9999 28.0089 91.0486 25.334 103.434 24.0935Z" fill="#C8956C"/></g><g filter="url(#cn1)"><path d="M137.637 29.9107C141.847 23.5187 150.178 20.926 157.688 22.4072C159.395 22.744 161.216 23.1281 163.399 23.3845C171.973 25.1486 181.323 27.7966 189.961 29.7069C198.097 31.5061 205.191 35.1183 209.538 42.5171C211.302 45.5343 212.535 48.8309 213.184 52.2639C214.363 58.3819 214.307 77.5697 212.736 83.4212C211.341 88.8222 207.803 93.421 202.939 96.1551C194.194 101.024 161.188 100.094 150.899 97.9958C133.26 93.1791 133.692 71.08 134.14 56.8198C134.48 45.9916 132.945 37.034 137.637 29.9107Z" fill="#C8956C"/></g><defs><filter id="cn0" x="24" y="1.69922" width="124" height="118" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="4"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="e1"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="11"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="e1" result="e2"/><feBlend mode="normal" in="SourceGraphic" in2="e2" result="shape"/></filter><filter id="cn1" x="112" y="0" width="124" height="121.699" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="4"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="e1"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="11"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="e1" result="e2"/><feBlend mode="normal" in="SourceGraphic" in2="e2" result="shape"/></filter></defs></svg>',
+
+      laughing: '<svg width="260" height="90" viewBox="0 0 260 90" fill="none" xmlns="http://www.w3.org/2000/svg"><g filter="url(#la0)"><path d="M77.3558 34.1841C97.1532 33.1522 121.022 30.1156 124 55.093C110.833 49.4305 103.663 50.0164 90.0365 50.5325C70.7843 51.1129 62.4442 49.8956 44 56.5C45.7199 36.3218 60.6819 35.0115 77.3558 34.1841Z" fill="#C8956C"/></g><g filter="url(#la1)"><path d="M143.397 38.3293C144.144 37.785 144.908 37.266 145.689 36.7721C155.981 30.3644 188.968 33.4536 201.358 36.3061C210.91 40.5575 214.292 47.047 216 57C199.919 50.3586 188.503 50.7472 171.376 50.3386C158.571 50.0334 151.034 48.3247 138.274 53.557C137.512 53.8706 136.754 54.1941 136 54.5275C136.791 46.6396 137.141 43.7216 143.397 38.3293Z" fill="#C8956C"/></g><defs><filter id="la0" x="22" y="11.5" width="124" height="67" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="4"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="e1"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="11"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="e1" result="e2"/><feBlend mode="normal" in="SourceGraphic" in2="e2" result="shape"/></filter><filter id="la1" x="114" y="11" width="124" height="68" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="4"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="e1"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="11"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="e1" result="e2"/><feBlend mode="normal" in="SourceGraphic" in2="e2" result="shape"/></filter></defs></svg>',
+
+      warm: '<svg width="260" height="90" viewBox="0 0 260 90" fill="none" xmlns="http://www.w3.org/2000/svg"><g filter="url(#wm0)"><path d="M71.3367 33.2574C79.4171 33.1043 100.896 32.4404 107.741 34.1261C110.745 34.855 113.554 36.2495 115.969 38.2102C121.993 43.1774 123.242 49.2522 124 56.5428C117.895 57.2527 104.151 56.8895 97.3888 56.8687L66.3762 56.9173C59.4976 56.9546 50.707 57.2518 44 56.4296C44.5863 47.6668 47.3852 40.1024 55.3682 35.7627C60.4585 32.9954 65.7597 33.3173 71.3367 33.2574Z" fill="#C8956C"/></g><g filter="url(#wm1)"><path d="M165.742 33.174C171.868 32.9268 193.653 32.7632 199 33.9887C201.681 34.601 204.214 35.7214 206.455 37.286C213.841 42.4466 214.587 48.309 216 56.3685C207.188 57.3179 196.229 56.935 187.239 56.8633L155.829 56.8885C149.691 56.8889 142.022 57.0826 136 56.6025C136.36 37.6638 149.169 33.7645 165.742 33.174Z" fill="#C8956C"/></g><defs><filter id="wm0" x="22" y="11" width="124" height="68" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="4"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="e1"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="11"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="e1" result="e2"/><feBlend mode="normal" in="SourceGraphic" in2="e2" result="shape"/></filter><filter id="wm1" x="114" y="11" width="124" height="68" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="4"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="e1"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset/><feGaussianBlur stdDeviation="11"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0.784314 0 0 0 0 0.584314 0 0 0 0 0.423529 0 0 0 0.25 0"/><feBlend mode="normal" in2="e1" result="e2"/><feBlend mode="normal" in="SourceGraphic" in2="e2" result="shape"/></filter></defs></svg>'
+    };
+
+    var TANVI_CONTEXT  = 'No Tanvi context loaded yet.';
+    var SESSION_MEMORY = '';
+
+    // ─── STORAGE KEYS ───
+    var AI_NAME_KEY      = 'ai_name';
+    var ONBOARDING_KEY   = 'onboarding_complete';
+    var SESSION_MSGS_KEY = 'session_messages';
+
+    // ─── STATE ───
+    var conversationHistory = [];
+    var previousEmotion     = 'idle';
+    var isWaiting           = false;
+    var pendingDialogAction = null;
+    var blinkTimer          = null;
+
+    // ─── DOM REFS ───
+    var $onboarding      = document.getElementById('onboarding');
+    var $obStep1         = document.getElementById('ob-step1');
+    var $obStep2         = document.getElementById('ob-step2');
+    var $ob2FaceMount    = document.getElementById('ob2-face-mount');
+    var $nameInput       = document.getElementById('name-input');
+    var $confirmBtn      = document.getElementById('confirm-btn');
+    var $app             = document.getElementById('app');
+    var $faceMount       = document.getElementById('face-mount');
+    var $conversation    = document.getElementById('conversation');
+    var $msgInput        = document.getElementById('msg-input');
+    var $sendBtn         = document.getElementById('send-btn');
+    var $settingsBtn     = document.getElementById('settings-btn');
+    var $settings        = document.getElementById('settings');
+    var $backBtn         = document.getElementById('back-btn');
+    var $settingsCurrentName = document.getElementById('settings-current-name');
+    var $settingsNameInput   = document.getElementById('settings-name-input');
+    var $saveNameBtn     = document.getElementById('save-name-btn');
+    var $clearMemoryBtn  = document.getElementById('clear-memory-btn');
+    var $confirmDialog   = document.getElementById('confirm-dialog');
+    var $dialogCancel    = document.getElementById('dialog-cancel');
+    var $dialogConfirm   = document.getElementById('dialog-confirm');
+
+    // ─── STORAGE HELPERS ───
+    function getAIName() { return localStorage.getItem(AI_NAME_KEY) || 'Presence'; }
+    function setAIName(name) { localStorage.setItem(AI_NAME_KEY, name.trim()); }
+    function isOnboardingComplete() { return localStorage.getItem(ONBOARDING_KEY) === 'true'; }
+    function completeOnboarding(name) {
+      setAIName(name);
+      localStorage.setItem(ONBOARDING_KEY, 'true');
+    }
+    function getSessionMessages() {
+      try { return JSON.parse(localStorage.getItem(SESSION_MSGS_KEY) || '[]'); }
+      catch(e) { return []; }
+    }
+    function saveSessionMessages(msgs) { localStorage.setItem(SESSION_MSGS_KEY, JSON.stringify(msgs)); }
+    function clearSessionMemory() { localStorage.removeItem(SESSION_MSGS_KEY); }
+
+    // ─── SYSTEM PROMPT ───
+    // Loaded at runtime from system_prompt.txt in the same directory.
+    // Any edits to that file automatically take effect on next load.
+    var LOADED_SYSTEM_PROMPT = '';
+
+    function loadSystemPrompt() {
+      return fetch('system_prompt.txt')
+        .then(function(r) {
+          if (!r.ok) throw new Error('system_prompt.txt not found');
+          return r.text();
+        })
+        .then(function(text) {
+          LOADED_SYSTEM_PROMPT = text;
+        })
+        .catch(function(err) {
+          console.warn('Could not load system_prompt.txt — using fallback.', err);
+          LOADED_SYSTEM_PROMPT = 'You are a personality AI. Always start your response with an emotion tag: [idle], [thinking], [playful], [warm], [excited], [smug], [concerned], or [laughing].';
+        });
+    }
+
+    function buildSystemPrompt() {
+      var aiName = getAIName();
+      var prompt = LOADED_SYSTEM_PROMPT;
+      prompt = prompt.replace(/\[AI_NAME\]/g, aiName);
+      prompt = prompt.replace(/\{tanvi_context\}/g, TANVI_CONTEXT);
+      prompt = prompt.replace(/\{session_memory\}/g, SESSION_MEMORY || '(No recent session memory)');
+      return prompt;
+    }
+
+    // ─── FACE ───
+    function setFaceEmotion(emotion) {
+      var mount = $faceMount;
+      // Remove previous animation classes
+      mount.classList.remove('face-breathe', 'face-bounce');
+
+      if (emotion === 'laughing') {
+        mount.innerHTML = FACE_SVGS.laughing || '';
+        mount.classList.add('face-bounce');
+      } else {
+        mount.innerHTML = FACE_SVGS[emotion] || FACE_SVGS.idle;
+        mount.classList.add('face-breathe');
+      }
+      previousEmotion = emotion;
+    }
+
+    // ─── BLINK ───
+    function startBlinking() {
+      scheduleBlink();
+    }
+
+    function scheduleBlink() {
+      var delay = 4000 + Math.random() * 4000;
+      blinkTimer = setTimeout(function() {
+        if (previousEmotion === 'idle') {
+          doBlink();
+        }
+        scheduleBlink();
+      }, delay);
+    }
+
+    function doBlink() {
+      $faceMount.classList.remove('face-breathe');
+      $faceMount.innerHTML = FACE_SVGS.laughing || '';
+      setTimeout(function() {
+        $faceMount.innerHTML = FACE_SVGS.idle || '';
+        $faceMount.classList.add('face-breathe');
+      }, 160);
+    }
+
+    // ─── SUPABASE HELPERS ───
+    function sbFetch(path, opts) {
+      return fetch(SUPABASE_URL + '/rest/v1/' + path, Object.assign({
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        }
+      }, opts));
+    }
+    function sbGet(table, query) {
+      return sbFetch(table + '?' + query).then(function(r) { return r.json(); });
+    }
+    function sbDelete(table, query) {
+      return sbFetch(table + '?' + query, { method: 'DELETE' });
+    }
+    function sbPatch(table, query, body) {
+      return sbFetch(table + '?' + query, { method: 'PATCH', body: JSON.stringify(body) });
+    }
+
+    // ─── MEMORY ───
+    var inactivityTimer = null;
+
+    function loadMemory() {
+      return Promise.all([
+        sbGet('memory_episodic', 'select=summary&order=created_at.desc&limit=5'),
+        sbGet('memory_preferential', 'select=summary&order=created_at.desc&limit=3'),
+        sbGet('memory_relational', 'select=last_session_summary,last_session_tone&limit=1'),
+        sbGet('memory_relational', 'select=tanvi_context&limit=1')
+      ]).then(function(results) {
+        var episodic    = results[0] || [];
+        var preferential = results[1] || [];
+        var relational  = results[2] || [];
+        var tanviCtx    = results[3] || [];
+
+        if (tanviCtx[0] && tanviCtx[0].tanvi_context) {
+          TANVI_CONTEXT = tanviCtx[0].tanvi_context;
+        }
+
+        var memParts = [];
+        if (relational[0] && relational[0].last_session_summary) {
+          memParts.push('Last session: ' + relational[0].last_session_summary);
+          if (relational[0].last_session_tone) {
+            memParts.push('Tone last time: ' + relational[0].last_session_tone);
+          }
+        }
+        episodic.forEach(function(e) { if (e.summary) memParts.push(e.summary); });
+        preferential.forEach(function(p) { if (p.summary) memParts.push(p.summary); });
+        SESSION_MEMORY = memParts.join('\n');
+      }).catch(function(err) {
+        console.warn('Memory load failed:', err);
+      });
+    }
+
+    function resetInactivityTimer() {
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(saveSession, 30 * 60 * 1000);
+    }
+
+    function saveSession() {
+      if (!conversationHistory.length) return;
+      var systemMsg  = { role: 'system', content: buildSystemPrompt() };
+      var summaryMsg = {
+        role: 'user',
+        content: 'Summarise this conversation in 2-3 sentences for future memory. Focus on emotional tone, topics discussed, and anything important about Tanvi\'s state or preferences. Be concise.'
+      };
+      callGroqWithFallback([systemMsg].concat(conversationHistory).concat([summaryMsg]))
+        .then(function(summary) {
+          return sbPatch('memory_relational', 'id=not.is.null', {
+            last_session_summary: summary,
+            last_session_tone: previousEmotion,
+            updated_at: new Date().toISOString()
+          });
+        })
+        .catch(function(err) { console.warn('Session save failed:', err); });
+    }
+
+    // ─── GROQ API ───
+    function callGroq(messages, modelIndex) {
+      modelIndex = modelIndex || 0;
+      var model = GROQ_MODELS[modelIndex];
+      return fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + GROQ_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ model: model, messages: messages, max_tokens: 400, temperature: 0.85 })
+      }).then(function(r) {
+        if (!r.ok) return r.text().then(function(t) { throw new Error('Groq ' + r.status + ': ' + t); });
+        return r.json();
+      }).then(function(data) {
+        return data.choices[0].message.content;
+      });
+    }
+
+    function callGroqWithFallback(messages) {
+      return callGroq(messages, 0).catch(function() { return callGroq(messages, 1); });
+    }
+
+    function callWithTimeout(promise, ms) {
+      var timeout = new Promise(function(_, reject) {
+        setTimeout(function() { reject(new Error('timeout')); }, ms);
+      });
+      return Promise.race([promise, timeout]);
+    }
+
+    function trimHistory() {
+      if (conversationHistory.length > 40) {
+        conversationHistory = conversationHistory.slice(-40);
+      }
+    }
+
+    // ─── MESSAGE PARSING ───
+    var EMOTION_TAGS = ['idle','thinking','playful','warm','excited','smug','concerned','laughing'];
+
+    function parseMessage(raw) {
+      var emotion = 'idle';
+      var text    = raw;
+      for (var i = 0; i < EMOTION_TAGS.length; i++) {
+        var tag = '[' + EMOTION_TAGS[i] + ']';
+        if (raw.indexOf(tag) !== -1) {
+          emotion = EMOTION_TAGS[i];
+          text    = raw.replace(tag, '').trim();
+          break;
+        }
+      }
+      setFaceEmotion(emotion);
+      return text;
+    }
+
+    // ─── CONVERSATION ───
+    function addMessage(text, role) {
+      var row = document.createElement('div');
+      row.className = 'message-row ' + role;
+      var msg = document.createElement('div');
+      msg.className = 'message';
+      msg.textContent = text;
+      row.appendChild(msg);
+      $conversation.appendChild(row);
+      $conversation.scrollTop = $conversation.scrollHeight;
+    }
+
+    function showError(originalText) {
+      var raw = '[concerned]\nSorry, something went wrong 🤷🏻‍♂️';
+      var displayText = parseMessage(raw);
+      addMessage(displayText, 'ai');
+
+      var retryBtn = document.createElement('button');
+      retryBtn.className = 'retry-btn';
+      retryBtn.textContent = 'Retry';
+      retryBtn.onclick = function() {
+        retryBtn.parentNode.removeChild(retryBtn);
+        $msgInput.value  = originalText;
+        isWaiting        = false;
+        $msgInput.disabled = false;
+        $sendBtn.disabled  = false;
+        sendMessage();
+      };
+      $conversation.appendChild(retryBtn);
+      $conversation.scrollTop = $conversation.scrollHeight;
+
+      isWaiting          = false;
+      $msgInput.disabled = false;
+      $sendBtn.disabled  = false;
+    }
+
+    // ─── SEND MESSAGE ───
+    function sendMessage() {
+      var text = $msgInput.value.trim();
+      if (!text || isWaiting) return;
+
+      $msgInput.value    = '';
+      isWaiting          = true;
+      $msgInput.disabled = true;
+      $sendBtn.disabled  = true;
+
+      addMessage(text, 'her');
+      setFaceEmotion('thinking');
+
+      conversationHistory.push({ role: 'user', content: text });
+      trimHistory();
+
+      var systemMsg  = { role: 'system', content: buildSystemPrompt() };
+      var apiMessages = [systemMsg].concat(conversationHistory);
+
+      callWithTimeout(callGroqWithFallback(apiMessages), 15000)
+        .then(function(raw) {
+          var displayText = parseMessage(raw);
+          addMessage(displayText, 'ai');
+          conversationHistory.push({ role: 'assistant', content: raw });
+          trimHistory();
+          isWaiting          = false;
+          $msgInput.disabled = false;
+          $sendBtn.disabled  = false;
+          $msgInput.focus();
+          resetInactivityTimer();
+        })
+        .catch(function(err) {
+          console.error('API error:', err);
+          conversationHistory.pop();
+          showError(text);
+        });
+    }
+
+    // ─── GREETING ───
+    function showGreeting() {
+      setTimeout(function() {
+        var hour      = new Date().getHours();
+        var timeOfDay = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : hour < 21 ? 'Evening' : 'Night';
+        var hasMemory = SESSION_MEMORY && SESSION_MEMORY.length > 0;
+        var memHint   = hasMemory
+          ? ' If something from your recent memory feels natural to reference, weave it in casually — but only if it fits. Do not force it.'
+          : '';
+
+        var systemMsg   = { role: 'system', content: buildSystemPrompt() };
+        var greetingMsg = {
+          role: 'user',
+          content: 'Say hello to Tanvi. It is ' + timeOfDay + '. Keep it short — one or two lines maximum, casual, natural Hinglish. Start with an emotion tag.' + memHint
+        };
+
+        setFaceEmotion('thinking');
+
+        callWithTimeout(callGroqWithFallback([systemMsg, greetingMsg]), 15000)
+          .then(function(raw) {
+            var displayText = parseMessage(raw);
+            addMessage(displayText, 'ai');
+          })
+          .catch(function() {
+            var fallback = parseMessage('[warm]\nHewwo, missed you');
+            addMessage(fallback, 'ai');
+          });
+      }, 800);
+    }
+
+    // ─── NAVIGATION ───
+    function goToStep2() {
+      $obStep1.classList.add('gone');
+      setTimeout(function() {
+        $obStep2.classList.add('visible');
+        // Set idle face on step 2
+        $ob2FaceMount.innerHTML = FACE_SVGS.idle;
+        $ob2FaceMount.classList.add('face-breathe');
+        $nameInput.focus();
+      }, 100);
+    }
+
+    function showApp() {
+      $onboarding.classList.remove('visible');
+      $app.classList.add('visible');
+      $settings.classList.remove('open');
+      document.title = getAIName();
+    }
+
+    function showOnboarding() {
+      $app.classList.remove('visible');
+      $settings.classList.remove('open');
+      $onboarding.classList.add('visible');
+    }
+
+    function openSettings() {
+      $settings.classList.add('open');
+      $settingsCurrentName.textContent = getAIName();
+      $settingsNameInput.value         = getAIName();
+    }
+
+    function closeSettings() {
+      $settings.classList.remove('open');
+    }
+
+    // ─── DIALOG ───
+    function showDialog(message, onConfirm) {
+      document.getElementById('dialog-message').textContent = message;
+      pendingDialogAction = onConfirm;
+      $confirmDialog.classList.add('visible');
+    }
+    function hideDialog() {
+      $confirmDialog.classList.remove('visible');
+      pendingDialogAction = null;
+    }
+
+    // ─── SETTINGS ACTIONS ───
+    function saveName() {
+      var name = $settingsNameInput.value.trim();
+      if (!name) return;
+      setAIName(name);
+      $settingsCurrentName.textContent = name;
+      document.title = name;
+      closeSettings();
+    }
+
+    function clearMemory() {
+      clearSessionMemory();
+      conversationHistory.length = 0;
+      SESSION_MEMORY = '';
+      $conversation.innerHTML = '';
+      hideDialog();
+
+      Promise.all([
+        sbDelete('memory_episodic', 'id=not.is.null'),
+        sbDelete('memory_preferential', 'id=not.is.null'),
+        sbPatch('memory_relational', 'id=not.is.null', {
+          last_session_tone: null,
+          last_session_summary: null,
+          updated_at: new Date().toISOString()
+        })
+      ]).then(function() {
+        console.log('Memory cleared');
+      }).catch(function(err) {
+        console.warn('Memory clear failed:', err);
+      });
+
+      showGreeting();
+    }
+
+    // ─── KEYBOARD HANDLING ───
+    if ('visualViewport' in window) {
+      window.visualViewport.addEventListener('resize', function() {
+        var keyboardHeight = window.innerHeight - window.visualViewport.height;
+        if (keyboardHeight > 50) {
+          document.getElementById('face-area').style.paddingTop = '32px';
+        } else {
+          document.getElementById('face-area').style.paddingTop = '';
+        }
+        $conversation.scrollTop = $conversation.scrollHeight;
+      });
+    }
+
+    // ─── EVENT BINDINGS ───
+    document.getElementById('ob-step1').addEventListener('click', goToStep2);
+
+    $confirmBtn.addEventListener('click', function() {
+      var name = $nameInput.value.trim();
+      if (!name) return;
+      $onboarding.classList.add('fade-out');
+      setTimeout(function() {
+        completeOnboarding(name);
+        showApp();
+        setFaceEmotion('idle');
+        loadMemory().then(function() {
+          showGreeting();
+          resetInactivityTimer();
+          startBlinking();
+        });
+      }, 380);
+    });
+
+    $nameInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') $confirmBtn.click();
+    });
+
+    $sendBtn.addEventListener('click', sendMessage);
+    $msgInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') sendMessage();
+    });
+
+    $settingsBtn.addEventListener('click', openSettings);
+    $backBtn.addEventListener('click', closeSettings);
+    $saveNameBtn.addEventListener('click', saveName);
+
+    $clearMemoryBtn.addEventListener('click', function() {
+      showDialog('This will reset our conversation history. Your profile stays intact.', clearMemory);
+    });
+
+    $dialogCancel.addEventListener('click', hideDialog);
+    $dialogConfirm.addEventListener('click', function() {
+      if (pendingDialogAction) pendingDialogAction();
+      hideDialog();
+    });
+
+
+    // ═══════════════════════════════════════════════════════
+    // ─── VOICE ENGINE ───────────────────────────────────────
+    // STT  : Groq Whisper  (audio blob → transcript)
+    // LLM  : Groq Llama    (unchanged)
+    // TTS  : Cartesia      (text → streamed audio, cloned voice)
+    // ═══════════════════════════════════════════════════════
+
+    var CARTESIA_API_KEY = 'sk_car_KASQKRvedHKigXe1T2cmjc';
+    var CARTESIA_VOICE_ID = 'e6972231-a595-40a2-94e2-34c801b99b6c';
+    var CARTESIA_MODEL   = 'sonic-2';
+    var CARTESIA_LANG    = 'en';
+
+    var VOICE_DEFAULT_KEY  = 'voice_default';
+    var SPEECH_RATE_KEY    = 'speech_rate';
+
+    // ── State ──
+    var voiceMode       = false;
+    var voiceRecording  = false;
+    var voiceSpeaking   = false;
+    var mediaRecorder   = null;
+    var audioChunks     = [];
+    var silenceTimer    = null;
+    var audioCtx        = null;
+    var analyserNode    = null;
+    var micStream       = null;
+    var cartesiaAudio   = null;  // current playing Audio element
+    var SILENCE_MS      = 2000;  // 2 second silence threshold
+    var SILENCE_THRESHOLD = 10;  // RMS below this = silence
+
+    // ── DOM refs ──
+    var $voiceOverlay   = document.getElementById('voice-overlay');
+    var $voicePulse     = document.getElementById('voice-pulse-ring');
+    var $voiceStatus    = document.getElementById('voice-status');
+    var $voiceInterim   = document.getElementById('voice-interim');
+    var $voiceModeBtn   = document.getElementById('voice-mode-btn');
+    var $voiceTextToggle = document.getElementById('voice-text-toggle');
+
+    // ── Settings helpers ──
+    function getVoiceDefault()  { return localStorage.getItem(VOICE_DEFAULT_KEY) !== 'false'; }
+    function setVoiceDefault(v) { localStorage.setItem(VOICE_DEFAULT_KEY, v ? 'true' : 'false'); }
+    function getSpeechRate()    { return parseFloat(localStorage.getItem(SPEECH_RATE_KEY) || '0.95'); }
+    function setSpeechRate(v)   { localStorage.setItem(SPEECH_RATE_KEY, String(v)); }
+
+    function toggleVoiceDefault() {
+      var next = !getVoiceDefault();
+      setVoiceDefault(next);
+      renderVoiceToggle(next);
+    }
+
+    function renderVoiceToggle(on) {
+      var track = document.getElementById('voice-toggle-track');
+      var thumb = document.getElementById('voice-toggle-thumb');
+      if (!track || !thumb) return;
+      track.style.background    = on ? 'rgba(200,149,108,0.25)' : '#2a2a2a';
+      track.style.borderColor   = on ? 'rgba(200,149,108,0.55)' : 'var(--border-subtle)';
+      thumb.style.transform     = on ? 'translateX(20px)' : 'translateX(0)';
+      thumb.style.background    = on ? 'var(--accent)' : 'var(--text-muted)';
+    }
+
+    function initVoiceSettings() {
+      renderVoiceToggle(getVoiceDefault());
+      var slider = document.getElementById('speech-rate-slider');
+      if (slider) {
+        slider.value = getSpeechRate();
+        slider.addEventListener('input', function() { setSpeechRate(parseFloat(this.value)); });
+      }
+    }
+
+    // ── Status helpers ──
+    function setVoiceStatus(text, lit) {
+      $voiceStatus.textContent = text;
+      lit ? $voiceStatus.classList.add('on') : $voiceStatus.classList.remove('on');
+    }
+    function setVoiceInterim(text) {
+      $voiceInterim.textContent = text;
+      text ? $voiceInterim.classList.add('visible') : $voiceInterim.classList.remove('visible');
+    }
+    function setPulse(state) {
+      $voicePulse.className = state || '';
+    }
+
+    // ── Enter / exit voice mode ──
+    function enterVoiceMode() {
+      voiceMode = true;
+      $app.classList.add('voice-mode');
+      $voiceOverlay.classList.add('active');
+      $voiceModeBtn.classList.add('active');
+      startRecording();
+    }
+
+    function exitVoiceMode() {
+      voiceMode = false;
+      stopRecording();
+      stopCartesiaAudio();
+      $app.classList.remove('voice-mode');
+      $voiceOverlay.classList.remove('active');
+      $voiceModeBtn.classList.remove('active');
+      setVoiceStatus('', false);
+      setVoiceInterim('');
+      setPulse('');
+    }
+
+    function toggleVoiceMode() {
+      voiceMode ? exitVoiceMode() : enterVoiceMode();
+    }
+
+    // ── Microphone & recording ──
+    function startRecording() {
+      if (voiceRecording || voiceSpeaking || isWaiting) return;
+
+      navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        .then(function(stream) {
+          if (!voiceMode) { stream.getTracks().forEach(function(t) { t.stop(); }); return; }
+
+          micStream = stream;
+          audioChunks = [];
+
+          // Set up analyser for silence detection
+          audioCtx    = new (window.AudioContext || window.webkitAudioContext)();
+          var source  = audioCtx.createMediaStreamSource(stream);
+          analyserNode = audioCtx.createAnalyser();
+          analyserNode.fftSize = 256;
+          source.connect(analyserNode);
+
+          // MediaRecorder — prefer webm, fall back to whatever's supported
+          var mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus'
+            : MediaRecorder.isTypeSupported('audio/webm')
+              ? 'audio/webm'
+              : '';
+          mediaRecorder = mimeType
+            ? new MediaRecorder(stream, { mimeType: mimeType })
+            : new MediaRecorder(stream);
+
+          mediaRecorder.ondataavailable = function(e) {
+            if (e.data && e.data.size > 0) audioChunks.push(e.data);
+          };
+
+          mediaRecorder.onstop = function() {
+            if (!voiceMode) return;
+            var blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+            audioChunks = [];
+            if (blob.size > 5000) {  // ignore tiny blobs (silence-only)
+              processVoiceInput(blob);
+            } else {
+              restartRecording();
+            }
+          };
+
+          mediaRecorder.start(100); // collect chunks every 100ms
+          voiceRecording = true;
+          setVoiceStatus('Listening...', true);
+          setPulse('listening');
+          monitorSilence();
+        })
+        .catch(function(err) {
+          console.warn('Mic access denied:', err);
+          exitVoiceMode();
+        });
+    }
+
+    function stopRecording() {
+      voiceRecording = false;
+      clearSilenceTimer();
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        try { mediaRecorder.stop(); } catch(e) {}
+      }
+      if (micStream) {
+        micStream.getTracks().forEach(function(t) { t.stop(); });
+        micStream = null;
+      }
+      if (audioCtx) {
+        try { audioCtx.close(); } catch(e) {}
+        audioCtx = null;
+        analyserNode = null;
+      }
+    }
+
+    function restartRecording() {
+      stopRecording();
+      if (voiceMode && !voiceSpeaking && !isWaiting) {
+        setTimeout(startRecording, 300);
+      }
+    }
+
+    // ── Silence detection via RMS ──
+    function monitorSilence() {
+      if (!voiceRecording || !analyserNode) return;
+
+      var buf = new Uint8Array(analyserNode.fftSize);
+      analyserNode.getByteTimeDomainData(buf);
+
+      var rms = 0;
+      for (var i = 0; i < buf.length; i++) {
+        var val = (buf[i] - 128) / 128;
+        rms += val * val;
+      }
+      rms = Math.sqrt(rms / buf.length) * 100;
+
+      if (rms > SILENCE_THRESHOLD) {
+        // Sound detected — update interim display and reset silence timer
+        clearSilenceTimer();
+        silenceTimer = setTimeout(function() {
+          // 2 seconds of silence — commit
+          if (voiceRecording && voiceMode) {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+              mediaRecorder.stop();
+              voiceRecording = false;
+            }
+          }
+        }, SILENCE_MS);
+      }
+
+      if (voiceRecording) {
+        requestAnimationFrame(monitorSilence);
+      }
+    }
+
+    function clearSilenceTimer() {
+      if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+    }
+
+    // ── STT: Groq Whisper ──
+    function processVoiceInput(blob) {
+      if (!voiceMode) return;
+
+      setVoiceStatus('Thinking...', true);
+      setPulse('thinking');
+      setVoiceInterim('');
+
+      var formData = new FormData();
+      formData.append('file', blob, 'audio.webm');
+      formData.append('model', 'whisper-large-v3-turbo');
+      formData.append('language', 'en');
+      formData.append('response_format', 'json');
+
+      fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + GROQ_API_KEY },
+        body: formData
+      })
+      .then(function(r) {
+        if (!r.ok) return r.text().then(function(t) { throw new Error('Whisper ' + r.status + ': ' + t); });
+        return r.json();
+      })
+      .then(function(data) {
+        var transcript = (data.text || '').trim();
+        if (!transcript || transcript.length < 2) {
+          // Empty transcript — just restart listening
+          restartRecording();
+          return;
+        }
+
+        // Strip wake word from start if present
+        var aiName = getAIName().toLowerCase();
+        var lc = transcript.toLowerCase();
+        if (lc.startsWith(aiName)) {
+          transcript = transcript.substring(aiName.length).replace(/^[\s,]+/, '').trim();
+        }
+        if (!transcript) { restartRecording(); return; }
+
+        // Show as her message in conversation
+        addMessage(transcript, 'her');
+        sendVoiceMessage(transcript);
+      })
+      .catch(function(err) {
+        console.warn('Whisper error:', err);
+        // STT failed — restart listening silently
+        restartRecording();
+      });
+    }
+
+    // ── Send transcribed message through LLM ──
+    function sendVoiceMessage(text) {
+      isWaiting = true;
+      setFaceEmotion('thinking');
+      setVoiceStatus('Thinking...', true);
+      setPulse('thinking');
+
+      conversationHistory.push({ role: 'user', content: text });
+      trimHistory();
+
+      var systemMsg   = { role: 'system', content: buildSystemPrompt() };
+      var apiMessages = [systemMsg].concat(conversationHistory);
+
+      callWithTimeout(callGroqWithFallback(apiMessages), 15000)
+        .then(function(raw) {
+          var displayText = parseMessage(raw);
+          addMessage(displayText, 'ai');
+          conversationHistory.push({ role: 'assistant', content: raw });
+          trimHistory();
+          isWaiting = false;
+          resetInactivityTimer();
+
+          if (voiceMode) {
+            speakWithCartesia(displayText);
+          } else {
+            restartRecording();
+          }
+        })
+        .catch(function(err) {
+          console.error('LLM error:', err);
+          conversationHistory.pop();
+          isWaiting = false;
+          var fallbackText = parseMessage('[concerned]\nSorry, something went wrong 🤷🏻‍♂️');
+          addMessage(fallbackText, 'ai');
+          // TTS failed — skip audio, restart listening
+          if (voiceMode) restartRecording();
+        });
+    }
+
+    // ── TTS: Cartesia streaming ──
+    function speakWithCartesia(text) {
+      if (!voiceMode) return;
+
+      // Strip emoji for cleaner TTS
+      var cleanText = text
+        .replace(/[\u{1F300}-\u{1FAFF}]/gu, '')
+        .replace(/[🤷🥺🫂🤣🤔🙂🤦👀❓]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (!cleanText) { restartRecording(); return; }
+
+      voiceSpeaking = true;
+      setVoiceStatus('Speaking...', true);
+      setPulse('speaking');
+
+      fetch('https://api.cartesia.ai/tts/bytes', {
+        method: 'POST',
+        headers: {
+          'Cartesia-Version': '2024-06-10',
+          'X-API-Key': CARTESIA_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model_id: CARTESIA_MODEL,
+          transcript: cleanText,
+          voice: {
+            mode: 'id',
+            id: CARTESIA_VOICE_ID
+          },
+          output_format: {
+            container: 'mp3',
+            encoding: 'mp3',
+            sample_rate: 44100
+          },
+          language: CARTESIA_LANG,
+          speed: getSpeechRate()
+        })
+      })
+      .then(function(r) {
+        if (!r.ok) throw new Error('Cartesia ' + r.status);
+        return r.blob();
+      })
+      .then(function(audioBlob) {
+        if (!voiceMode) { voiceSpeaking = false; return; }
+
+        var url = URL.createObjectURL(audioBlob);
+        cartesiaAudio = new Audio(url);
+        cartesiaAudio.playbackRate = 1.0; // rate already applied server-side via speed param
+
+        cartesiaAudio.onended = function() {
+          URL.revokeObjectURL(url);
+          voiceSpeaking = false;
+          cartesiaAudio = null;
+          if (voiceMode) {
+            setPulse('');
+            setTimeout(startRecording, 400);
+          }
+        };
+
+        cartesiaAudio.onerror = function() {
+          URL.revokeObjectURL(url);
+          voiceSpeaking = false;
+          cartesiaAudio = null;
+          // Audio failed — skip, restart listening
+          if (voiceMode) restartRecording();
+        };
+
+        cartesiaAudio.play().catch(function() {
+          voiceSpeaking = false;
+          if (voiceMode) restartRecording();
+        });
+      })
+      .catch(function(err) {
+        console.warn('Cartesia error:', err);
+        voiceSpeaking = false;
+        // TTS failed — skip audio, restart listening
+        if (voiceMode) restartRecording();
+      });
+    }
+
+    function stopCartesiaAudio() {
+      voiceSpeaking = false;
+      if (cartesiaAudio) {
+        try { cartesiaAudio.pause(); } catch(e) {}
+        cartesiaAudio = null;
+      }
+    }
+
+    // ── Interrupt: stop speaking and start listening ──
+    function interruptSpeech() {
+      if (voiceSpeaking) {
+        stopCartesiaAudio();
+        setPulse('');
+        setTimeout(startRecording, 200);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // ─── END VOICE ENGINE ───────────────────────────────────
+    // ═══════════════════════════════════════════════════════
+
+    
+    // ─── VOICE EVENT BINDINGS ───
+    $voiceModeBtn.addEventListener('click', toggleVoiceMode);
+    $voiceTextToggle.addEventListener('click', exitVoiceMode);
+
+    // Tap face area while AI is speaking = interrupt
+    document.getElementById('face-area').addEventListener('click', function() {
+      if (voiceSpeaking) interruptSpeech();
+    });
+
+    // Focusing the text input while in voice mode exits voice mode
+    $msgInput.addEventListener('focus', function() {
+      if (voiceMode) exitVoiceMode();
+    });
+
+    function init() {
+      loadSystemPrompt().then(function() {
+        if (!isOnboardingComplete()) {
+          showOnboarding();
+        } else {
+          showApp();
+          setFaceEmotion('idle');
+          initVoiceSettings();
+          loadMemory().then(function() {
+            showGreeting();
+            resetInactivityTimer();
+            startBlinking();
+            // Auto-enter voice mode if default is on
+            if (getVoiceDefault()) {
+              setTimeout(enterVoiceMode, 1000);
+            }
+          });
+        }
+      });
+    }
+
+    // Also wire onboarding complete → auto-enter voice mode
+    var _origConfirm = $confirmBtn.onclick;
+    $confirmBtn.addEventListener('click', function() {
+      // After onboarding completes and app shows, check voice default
+      setTimeout(function() {
+        if (isOnboardingComplete() && getVoiceDefault()) {
+          setTimeout(enterVoiceMode, 1200);
+        }
+      }, 500);
+    });
+
+    init();
+    console.log('Presence loaded OK');
+  </script>
+</body>
+</html>
