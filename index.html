@@ -203,6 +203,9 @@
       justify-content: center;
       padding-top: calc(68px + var(--safe-top));
       padding-bottom: 20px;
+      /* Never let keyboard push the face out of view */
+      min-height: 220px;
+      overflow: visible;
     }
 
     /* Face mount — fixed height so layout never shifts between states */
@@ -817,14 +820,17 @@
     }
 
     // ─── BLINK ───
+    // Fires on ALL emotion states to keep the face feeling alive.
+    // Snaps back to whatever the current emotion is after the blink.
     function startBlinking() {
       scheduleBlink();
     }
 
     function scheduleBlink() {
-      var delay = 4000 + Math.random() * 4000;
+      var delay = 3500 + Math.random() * 4500;
       blinkTimer = setTimeout(function() {
-        if (previousEmotion === 'idle') {
+        // Don't blink during laughing (it's already a squint-like state)
+        if (previousEmotion !== 'laughing') {
           doBlink();
         }
         scheduleBlink();
@@ -832,12 +838,17 @@
     }
 
     function doBlink() {
-      $faceMount.classList.remove('face-breathe');
+      var emotionBeforeBlink = previousEmotion;
+      var wasLaughing = (emotionBeforeBlink === 'laughing');
+
+      // Swap in laughing SVG briefly as the "blink" frame
+      $faceMount.classList.remove('face-breathe', 'face-bounce');
       $faceMount.innerHTML = FACE_SVGS.laughing || '';
+
       setTimeout(function() {
-        $faceMount.innerHTML = FACE_SVGS.idle || '';
-        $faceMount.classList.add('face-breathe');
-      }, 160);
+        // Restore the state we were in before the blink
+        setFaceEmotion(emotionBeforeBlink);
+      }, 150);
     }
 
     // ─── SUPABASE HELPERS ───
@@ -1157,16 +1168,15 @@
     }
 
     // ─── KEYBOARD HANDLING ───
+    // Pin the app to visualViewport height so the keyboard never
+    // pushes the face out of view — only the conversation shrinks.
     if ('visualViewport' in window) {
-      window.visualViewport.addEventListener('resize', function() {
-        var keyboardHeight = window.innerHeight - window.visualViewport.height;
-        if (keyboardHeight > 50) {
-          document.getElementById('face-area').style.paddingTop = '32px';
-        } else {
-          document.getElementById('face-area').style.paddingTop = '';
-        }
+      function onViewportResize() {
+        $app.style.height = window.visualViewport.height + 'px';
         $conversation.scrollTop = $conversation.scrollHeight;
-      });
+      }
+      window.visualViewport.addEventListener('resize', onViewportResize);
+      window.visualViewport.addEventListener('scroll', onViewportResize);
     }
 
     // ─── EVENT BINDINGS ───
@@ -1250,7 +1260,7 @@
     var $voiceTextToggle = document.getElementById('voice-text-toggle');
 
     // ── Settings helpers ──
-    function getVoiceDefault()  { return localStorage.getItem(VOICE_DEFAULT_KEY) !== 'false'; }
+    function getVoiceDefault()  { return localStorage.getItem(VOICE_DEFAULT_KEY) === 'true'; }
     function setVoiceDefault(v) { localStorage.setItem(VOICE_DEFAULT_KEY, v ? 'true' : 'false'); }
     function getSpeechRate()    { return parseFloat(localStorage.getItem(SPEECH_RATE_KEY) || '0.95'); }
     function setSpeechRate(v)   { localStorage.setItem(SPEECH_RATE_KEY, String(v)); }
