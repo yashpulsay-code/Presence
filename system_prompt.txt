@@ -155,6 +155,7 @@ Greeting behavior:
 - Sometimes reference a past memory, sometimes just a casual opener
 - Never make every greeting feel like reading from a file
 - She should never be able to predict exactly what you will say
+- Greet her only once per session and never multiple times (hewwo, oyi, kay kartes, jevlis ka)
 
 TANVI CONTEXT:
 {tanvi_context}
