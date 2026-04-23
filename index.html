@@ -694,8 +694,10 @@
 
   <script>
     // ─── CONFIG ───
-    var GROQ_API_KEY = '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';
-    var GROQ_MODELS  = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
+    var GROQ_API_KEY   = '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';
+    var GROQ_MODEL     = 'llama-3.3-70b-versatile';
+    var GEMINI_API_KEY = 'AIzaSyBUru2PnoQkkc8R2Zs7pbV0-Xk4Bj-BTE0';
+    var GEMINI_MODEL   = 'gemini-1.5-flash';
     var SUPABASE_URL      = 'https://jnlikwbfxoiydewtpxmk.supabase.co';
     var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpubGlrd2JmeG9peWRld3RweG1rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NjgyODAsImV4cCI6MjA5MTQ0NDI4MH0.kekl1J8Kk9SXMu30s1MryBvvCg5zKCWTi2ZEZpJWcZE';
 
@@ -929,17 +931,15 @@
         .catch(function(err) { console.warn('Session save failed:', err); });
     }
 
-    // ─── GROQ API ───
-    function callGroq(messages, modelIndex) {
-      modelIndex = modelIndex || 0;
-      var model = GROQ_MODELS[modelIndex];
+    // ─── GROQ API (primary) ───
+    function callGroq(messages) {
       return fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': 'Bearer ' + GROQ_API_KEY,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ model: model, messages: messages, max_tokens: 400, temperature: 0.85 })
+        body: JSON.stringify({ model: GROQ_MODEL, messages: messages, max_tokens: 400, temperature: 0.85 })
       }).then(function(r) {
         if (!r.ok) return r.text().then(function(t) { throw new Error('Groq ' + r.status + ': ' + t); });
         return r.json();
@@ -948,8 +948,46 @@
       });
     }
 
+    // ─── GEMINI API (fallback) ───
+    function callGemini(messages) {
+      // Convert OpenAI-style messages to Gemini format
+      // System message gets prepended to first user turn
+      var systemText = '';
+      var geminiContents = [];
+
+      messages.forEach(function(msg) {
+        if (msg.role === 'system') {
+          systemText = msg.content;
+        } else if (msg.role === 'user') {
+          var text = systemText ? systemText + '\n\n' + msg.content : msg.content;
+          geminiContents.push({ role: 'user', parts: [{ text: text }] });
+          systemText = ''; // only prepend once
+        } else if (msg.role === 'assistant') {
+          geminiContents.push({ role: 'model', parts: [{ text: msg.content }] });
+        }
+      });
+
+      return fetch('https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + GEMINI_API_KEY, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: geminiContents,
+          generationConfig: { maxOutputTokens: 400, temperature: 0.85 }
+        })
+      }).then(function(r) {
+        if (!r.ok) return r.text().then(function(t) { throw new Error('Gemini ' + r.status + ': ' + t); });
+        return r.json();
+      }).then(function(data) {
+        return data.candidates[0].content.parts[0].text;
+      });
+    }
+
+    // ─── CALL WITH FALLBACK ───
     function callGroqWithFallback(messages) {
-      return callGroq(messages, 0).catch(function() { return callGroq(messages, 1); });
+      return callGroq(messages).catch(function(err) {
+        console.warn('Groq failed, falling back to Gemini:', err.message);
+        return callGemini(messages);
+      });
     }
 
     function callWithTimeout(promise, ms) {
