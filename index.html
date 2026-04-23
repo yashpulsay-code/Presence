@@ -873,6 +873,9 @@
     function sbPatch(table, query, body) {
       return sbFetch(table + '?' + query, { method: 'PATCH', body: JSON.stringify(body) });
     }
+    function sbInsert(table, body) {
+      return sbFetch(table, { method: 'POST', body: JSON.stringify(body) });
+    }
 
     // ─── MEMORY ───
     var inactivityTimer = null;
@@ -910,7 +913,7 @@
 
     function resetInactivityTimer() {
       if (inactivityTimer) clearTimeout(inactivityTimer);
-      inactivityTimer = setTimeout(saveSession, 30 * 60 * 1000);
+      inactivityTimer = setTimeout(saveSession, 10 * 60 * 1000);
     }
 
     function saveSession() {
@@ -931,7 +934,38 @@
         .catch(function(err) { console.warn('Session save failed:', err); });
     }
 
-    // ─── GROQ API (primary) ───
+    // ─── PREFERENCE DETECTION ───
+    // Fires after every user message via Gemini (cheap, fast).
+    // Checks if Tanvi gave an explicit behavioral instruction.
+    // If yes, saves it directly to memory_preferential in Supabase.
+    function detectAndSavePreference(userMessage) {
+      var prompt = 'You are analysing a single message from a user called Tanvi who is talking to a personality AI.\n\nMessage: "' + userMessage + '"\n\nDoes this message contain an explicit instruction, preference, or behavioral request directed at the AI? Examples: "stop calling me X", "don\'t do Y", "I prefer when you Z", "always do X", "never say Y".\n\nIf YES, respond with exactly: PREFERENCE: [one clear sentence summarising the instruction, starting with "Tanvi prefers..." or "Tanvi has asked..."]\n\nIf NO, respond with exactly: NONE';
+
+      callGemini([{ role: 'user', content: prompt }])
+        .then(function(result) {
+          result = result.trim();
+          if (result.indexOf('PREFERENCE:') === 0) {
+            var summary = result.replace('PREFERENCE:', '').trim();
+            sbInsert('memory_preferential', {
+              summary: summary,
+              created_at: new Date().toISOString()
+            }).catch(function(err) {
+              console.warn('Preference save failed:', err);
+            });
+            // Also update in-session memory immediately so it takes effect now
+            SESSION_MEMORY = SESSION_MEMORY
+              ? SESSION_MEMORY + '\n' + summary
+              : summary;
+            console.log('Preference saved:', summary);
+          }
+        })
+        .catch(function(err) {
+          // Silent fail — preference detection is non-critical
+          console.warn('Preference detection failed:', err);
+        });
+    }
+
+
     function callGroq(messages) {
       return fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -1072,6 +1106,9 @@
 
       conversationHistory.push({ role: 'user', content: text });
       trimHistory();
+
+      // Fire preference detection in background — non-blocking, silent fail
+      detectAndSavePreference(text);
 
       var systemMsg  = { role: 'system', content: buildSystemPrompt() };
       var apiMessages = [systemMsg].concat(conversationHistory);
@@ -1523,6 +1560,7 @@
 
         // Show as her message in conversation
         addMessage(transcript, 'her');
+        detectAndSavePreference(transcript); // background, non-blocking
         sendVoiceMessage(transcript);
       })
       .catch(function(err) {
