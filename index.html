@@ -935,9 +935,6 @@
     }
 
     // ─── PREFERENCE DETECTION ───
-    // Fires after every user message via Gemini (cheap, fast).
-    // Checks if Tanvi gave an explicit behavioral instruction.
-    // If yes, saves it directly to memory_preferential in Supabase.
     function detectAndSavePreference(userMessage) {
       var prompt = 'You are analysing a single message from a user called Tanvi who is talking to a personality AI.\n\nMessage: "' + userMessage + '"\n\nDoes this message contain an explicit instruction, preference, or behavioral request directed at the AI? Examples: "stop calling me X", "don\'t do Y", "I prefer when you Z", "always do X", "never say Y".\n\nIf YES, respond with exactly: PREFERENCE: [one clear sentence summarising the instruction, starting with "Tanvi prefers..." or "Tanvi has asked..."]\n\nIf NO, respond with exactly: NONE';
 
@@ -949,23 +946,15 @@
             sbInsert('memory_preferential', {
               summary: summary,
               created_at: new Date().toISOString()
-            }).catch(function(err) {
-              console.warn('Preference save failed:', err);
-            });
-            // Also update in-session memory immediately so it takes effect now
-            SESSION_MEMORY = SESSION_MEMORY
-              ? SESSION_MEMORY + '\n' + summary
-              : summary;
+            }).catch(function(err) { console.warn('Preference save failed:', err); });
+            SESSION_MEMORY = SESSION_MEMORY ? SESSION_MEMORY + '\n' + summary : summary;
             console.log('Preference saved:', summary);
           }
         })
-        .catch(function(err) {
-          // Silent fail — preference detection is non-critical
-          console.warn('Preference detection failed:', err);
-        });
+        .catch(function(err) { console.warn('Preference detection failed:', err); });
     }
 
-
+    // ─── GROQ API (primary) ───
     function callGroq(messages) {
       return fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -984,23 +973,19 @@
 
     // ─── GEMINI API (fallback) ───
     function callGemini(messages) {
-      // Convert OpenAI-style messages to Gemini format
-      // System message gets prepended to first user turn
       var systemText = '';
       var geminiContents = [];
-
       messages.forEach(function(msg) {
         if (msg.role === 'system') {
           systemText = msg.content;
         } else if (msg.role === 'user') {
           var text = systemText ? systemText + '\n\n' + msg.content : msg.content;
           geminiContents.push({ role: 'user', parts: [{ text: text }] });
-          systemText = ''; // only prepend once
+          systemText = '';
         } else if (msg.role === 'assistant') {
           geminiContents.push({ role: 'model', parts: [{ text: msg.content }] });
         }
       });
-
       return fetch('https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + GEMINI_API_KEY, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1039,6 +1024,7 @@
 
     // ─── MESSAGE PARSING ───
     var EMOTION_TAGS = ['idle','thinking','playful','warm','excited','smug','concerned','laughing'];
+    var currentEmotion = 'idle'; // tracked for Cartesia emotion mapping
 
     function parseMessage(raw) {
       var emotion = 'idle';
@@ -1051,6 +1037,7 @@
           break;
         }
       }
+      currentEmotion = emotion;
       setFaceEmotion(emotion);
       return text;
     }
@@ -1107,7 +1094,7 @@
       conversationHistory.push({ role: 'user', content: text });
       trimHistory();
 
-      // Fire preference detection in background — non-blocking, silent fail
+      // Fire preference detection in background — non-blocking
       detectAndSavePreference(text);
 
       var systemMsg  = { role: 'system', content: buildSystemPrompt() };
@@ -1304,10 +1291,23 @@
     // TTS  : Cartesia      (text → streamed audio, cloned voice)
     // ═══════════════════════════════════════════════════════
 
-    var CARTESIA_API_KEY = 'sk_car_KASQKRvedHKigXe1T2cmjc';
-    var CARTESIA_VOICE_ID = 'e6972231-a595-40a2-94e2-34c801b99b6c';
-    var CARTESIA_MODEL   = 'sonic-2';
-    var CARTESIA_LANG    = 'en';
+    var CARTESIA_API_KEY   = 'sk_car_KASQKRvedHKigXe1T2cmjc';
+    var CARTESIA_VOICE_ID  = 'e6972231-a595-40a2-94e2-34c801b99b6c';
+    var CARTESIA_MODEL     = 'sonic-2';
+    var CARTESIA_LANG      = 'en';
+    var CARTESIA_DICT_ID   = 'pdict_2qLBCVvQhsQbWBEDsCsFJ8';
+
+    // Emotion tag → Cartesia emotion parameters
+    var CARTESIA_EMOTIONS = {
+      idle:      [],
+      thinking:  [{ name: 'curiosity',  level: 'low'     }],
+      playful:   [{ name: 'positivity', level: 'medium'  }, { name: 'surprise', level: 'low'    }],
+      warm:      [{ name: 'positivity', level: 'medium'  }],
+      excited:   [{ name: 'positivity', level: 'high'    }, { name: 'surprise', level: 'medium' }],
+      smug:      [{ name: 'positivity', level: 'low'     }],
+      concerned: [{ name: 'sadness',    level: 'low'     }],
+      laughing:  [{ name: 'positivity', level: 'highest' }]
+    };
 
     var VOICE_DEFAULT_KEY  = 'voice_default';
     var SPEECH_RATE_KEY    = 'speech_rate';
@@ -1613,7 +1613,6 @@
     function speakWithCartesia(text) {
       if (!voiceMode) return;
 
-      // Strip emoji for cleaner TTS
       var cleanText = text
         .replace(/[\u{1F300}-\u{1FAFF}]/gu, '')
         .replace(/[🤷🥺🫂🤣🤔🙂🤦👀❓]/g, '')
@@ -1626,6 +1625,15 @@
       setVoiceStatus('Speaking...', true);
       setPulse('speaking');
 
+      // Build emotion array from current emotion tag
+      var emotionParams = CARTESIA_EMOTIONS[currentEmotion] || [];
+
+      // Build voice object — include emotions only if non-empty
+      var voiceObj = { mode: 'id', id: CARTESIA_VOICE_ID };
+      if (emotionParams.length > 0) {
+        voiceObj.__experimental_controls = { emotion: emotionParams };
+      }
+
       fetch('https://api.cartesia.ai/tts/bytes', {
         method: 'POST',
         headers: {
@@ -1636,10 +1644,10 @@
         body: JSON.stringify({
           model_id: CARTESIA_MODEL,
           transcript: cleanText,
-          voice: {
-            mode: 'id',
-            id: CARTESIA_VOICE_ID
-          },
+          voice: voiceObj,
+          pronunciation_dictionary_locators: [
+            { pronunciation_dictionary_id: CARTESIA_DICT_ID }
+          ],
           output_format: {
             container: 'mp3',
             encoding: 'mp3',
