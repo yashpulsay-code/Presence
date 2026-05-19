@@ -694,12 +694,8 @@
 
   <script>
     // ─── CONFIG ───
-    var GROQ_API_KEY   = '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';
     var GROQ_MODEL     = 'llama-3.3-70b-versatile';
-    var GEMINI_API_KEY = 'AIzaSyBUru2PnoQkkc8R2Zs7pbV0-Xk4Bj-BTE0';
     var GEMINI_MODEL   = 'gemini-1.5-flash';
-    var SUPABASE_URL      = 'https://jnlikwbfxoiydewtpxmk.supabase.co';
-    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpubGlrd2JmeG9peWRld3RweG1rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NjgyODAsImV4cCI6MjA5MTQ0NDI4MH0.kekl1J8Kk9SXMu30s1MryBvvCg5zKCWTi2ZEZpJWcZE';
 
     // ─── SVG FACE STATES ───
     // Warm state is rendered as CSS divs (see HTML + setFaceEmotion).
@@ -956,14 +952,11 @@
 
     // ─── GROQ API (primary) ───
     function callGroq(messages) {
-      return fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + GROQ_API_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ model: GROQ_MODEL, messages: messages, max_tokens: 400, temperature: 0.85 })
-      }).then(function(r) {
+  return fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: GROQ_MODEL, messages: messages, max_tokens: 400, temperature: 0.85 })
+  }).then(function(r) {
         if (!r.ok) return r.text().then(function(t) { throw new Error('Groq ' + r.status + ': ' + t); });
         return r.json();
       }).then(function(data) {
@@ -986,12 +979,15 @@
           geminiContents.push({ role: 'model', parts: [{ text: msg.content }] });
         }
       });
-      return fetch('https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + GEMINI_API_KEY, {
+      return fetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: geminiContents,
-          generationConfig: { maxOutputTokens: 400, temperature: 0.85 }
+          model: GEMINI_MODEL,
+          body: {
+            contents: geminiContents,
+            generationConfig: { maxOutputTokens: 400, temperature: 0.85 }
+          }
         })
       }).then(function(r) {
         if (!r.ok) return r.text().then(function(t) { throw new Error('Gemini ' + r.status + ': ' + t); });
@@ -1291,7 +1287,6 @@
     // TTS  : Cartesia      (text → streamed audio, cloned voice)
     // ═══════════════════════════════════════════════════════
 
-    var CARTESIA_API_KEY   = 'sk_car_KASQKRvedHKigXe1T2cmjc';
     var CARTESIA_VOICE_ID  = 'e6972231-a595-40a2-94e2-34c801b99b6c';
     var CARTESIA_MODEL     = 'sonic-2';
     var CARTESIA_LANG      = 'en';
@@ -1533,11 +1528,10 @@
       formData.append('language', 'en');
       formData.append('response_format', 'json');
 
-      fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + GROQ_API_KEY },
-        body: formData
-      })
+      fetch('/api/transcribe', {
+  method: 'POST',
+  body: formData
+})
       .then(function(r) {
         if (!r.ok) return r.text().then(function(t) { throw new Error('Whisper ' + r.status + ': ' + t); });
         return r.json();
@@ -1634,13 +1628,9 @@
         voiceObj.__experimental_controls = { emotion: emotionParams };
       }
 
-      fetch('https://api.cartesia.ai/tts/bytes', {
+      fetch('/api/tts', {
         method: 'POST',
-        headers: {
-          'Cartesia-Version': '2024-06-10',
-          'X-API-Key': CARTESIA_API_KEY,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model_id: CARTESIA_MODEL,
           transcript: cleanText,
