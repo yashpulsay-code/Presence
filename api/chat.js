@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': 'Bearer ' + process.env.GROQ_API_KEY,
+        'Authorization': 'Bearer ' + process.env.GROQ_API_Key,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(req.body)
